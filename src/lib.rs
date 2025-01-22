@@ -1,23 +1,28 @@
+use crate::command_handler::{answer, CustomBotCommand};
+use crate::message_buttons_handler::message_button_callback;
 use teloxide::prelude::*;
-use teloxide::types::MessageKind;
 
-pub mod message_handler;
+mod command_handler;
+mod domain;
+mod keyboards;
+mod message_buttons_handler;
+mod messages;
 
-pub struct BotMetadata<'m, 'b> {
-    bot: &'b Bot,
-    message: &'m Message,
-}
+pub async fn apply_command_handler(bot: Bot) {
+    println!("Command handler called!");
 
-impl<'m, 'b> BotMetadata<'m, 'b> {
-    pub fn new(bot: &'b Bot, message: &'m Message) -> Self {
-        Self { bot, message }
-    }
-
-    pub(crate) fn chat_id(&self) -> &'m ChatId {
-        &self.message.chat.id
-    }
-
-    pub(crate) fn message_kind(&self) -> &'m MessageKind {
-        &self.message.kind
-    }
+    Dispatcher::builder(
+        bot,
+        dptree::entry()
+            .branch(
+                Update::filter_message()
+                    .filter_command::<CustomBotCommand>()
+                    .endpoint(answer),
+            )
+            .branch(Update::filter_callback_query().endpoint(message_button_callback)),
+    )
+    .enable_ctrlc_handler()
+    .build()
+    .dispatch()
+    .await;
 }
