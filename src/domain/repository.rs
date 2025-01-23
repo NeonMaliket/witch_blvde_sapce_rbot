@@ -1,4 +1,12 @@
-use crate::domain::entity::HeroBuild;
+use crate::domain::entity::{HeroBuild, LocalStorage};
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
+
+type BotStorage = Lazy<Mutex<LocalStorage<'static>>>;
+
+lazy_static::lazy_static! {
+    pub static ref STORAGE: BotStorage = Lazy::new(|| Mutex::new(LocalStorage::default()));
+}
 
 #[derive(Clone)]
 pub(crate) struct HeroBuildRepository<'a> {

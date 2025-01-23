@@ -17,8 +17,11 @@ pub(crate) mod hero_build {
     impl MessageResponse for HeroBuild<'_> {
         fn text(&self) -> String {
             let mut message = String::from("Hero Build");
-            message.push('\n');
-            message.push_str(self.title);
+
+            self.title.map(|title| {
+                message.push('\n');
+                message.push_str(title);
+            });
             self.description.map(|desc| {
                 message.push('\n');
                 message.push_str(desc);
