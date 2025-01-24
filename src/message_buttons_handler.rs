@@ -1,7 +1,9 @@
-use crate::domain::repository::{HeroBuildRepository, STORAGE};
+use crate::domain::repository::{is_admin, HeroBuildRepository, STORAGE};
 use crate::keyboards::{hero_build_keyboard, new_build_keyboard};
 use crate::message_buttons_handler::button_callback::hero_builds::*;
-use crate::message_buttons_handler::button_callback::new_build::{ADD_DESC, ADD_PHOTO, ADD_TITLE, SAVE_BUILD};
+use crate::message_buttons_handler::button_callback::new_build::{
+    ADD_DESC, ADD_PHOTO, ADD_TITLE, SAVE_BUILD,
+};
 use crate::messages::{BuildNotFoundMessageResponse, MessageResponse};
 use std::ops::Deref;
 use teloxide::payloads::{EditMessageTextSetters, SendMessageSetters};
@@ -38,15 +40,19 @@ pub async fn message_button_callback<'a>(
 ) -> ResponseResult<()> {
     if let Some(data) = &callback_query.data {
         let message = callback_query.message.unwrap();
+        let username = callback_query
+            .from
+            .username
+            .unwrap_or_else(|| "".to_string());
         let chat_id = message.chat().id;
         let message_id = message.id();
 
         if data.contains(&message_type::HERO_BUILDS) {
-            hero_build_callback(data, &chat_id, &bot, &message_id).await;
+            hero_build_callback(data, &chat_id, &bot, &message_id, username.as_str()).await;
         }
-        if data.contains(&message_type::NEW_BUILD) {
+        if data.contains(&message_type::NEW_BUILD) && is_admin(username.as_str()) {
             STORAGE.lock().await.default_build_for(chat_id.clone());
-            new_build_callback(data, &chat_id, &bot, &message_id).await;
+            new_build_callback(data, &chat_id, &bot, &message_id, username.as_str()).await;
         }
     }
 
@@ -58,6 +64,7 @@ async fn new_build_callback(
     chat_id: &ChatId,
     bot: &Bot,
     message_id: &MessageId,
+    username: &str,
 ) {
     let callback_data = CallbackData::from(data.to_string());
     let result = match callback_data.button_type.as_str() {
@@ -67,7 +74,7 @@ async fn new_build_callback(
                 .await
                 .update_last_action(chat_id.clone(), ADD_PHOTO);
             bot.edit_message_text(*chat_id, *message_id, "NEW BUILD ADD PHOTO")
-                .reply_markup(new_build_keyboard())
+                .reply_markup(new_build_keyboard(username))
                 .await
         }
         ADD_TITLE => {
@@ -76,7 +83,7 @@ async fn new_build_callback(
                 .await
                 .update_last_action(chat_id.clone(), ADD_TITLE);
             bot.edit_message_text(*chat_id, *message_id, "NEW BUILD ADD TITLE")
-                .reply_markup(new_build_keyboard())
+                .reply_markup(new_build_keyboard(username))
                 .await
         }
         ADD_DESC => {
@@ -85,18 +92,14 @@ async fn new_build_callback(
                 .await
                 .update_last_action(chat_id.clone(), ADD_DESC);
             bot.edit_message_text(*chat_id, *message_id, "NEW BUILD ADD DESC")
-                .reply_markup(new_build_keyboard())
+                .reply_markup(new_build_keyboard(username))
                 .await
         }
         SAVE_BUILD => {
-            let response_text = STORAGE
-                .lock()
-                .await
-                .get_build(chat_id).unwrap()
-                .text();
+            let response_text = STORAGE.lock().await.get_build(chat_id).unwrap().text();
             println!("SAVE BUILD");
             bot.edit_message_text(*chat_id, *message_id, response_text)
-                .reply_markup(new_build_keyboard())
+                .reply_markup(new_build_keyboard(username))
                 .await
         }
         _ => bot.send_message(*chat_id, "Unknown button clicked").await,
@@ -105,8 +108,15 @@ async fn new_build_callback(
     println!("Message type: {}", callback_data.message_type);
 }
 
-async fn hero_build_callback(data: &str, chat_id: &ChatId, bot: &Bot, message_id: &MessageId) {
+async fn hero_build_callback(
+    data: &str,
+    chat_id: &ChatId,
+    bot: &Bot,
+    message_id: &MessageId,
+    username: &str,
+) {
     let callback_data = CallbackData::from(data.to_string());
+
     println!("Message type: {}", callback_data.message_type);
 
     let result = match callback_data.button_type.as_str() {
@@ -114,14 +124,14 @@ async fn hero_build_callback(data: &str, chat_id: &ChatId, bot: &Bot, message_id
             let incremented: u32 = callback_data.incremented_index();
             let message = hero_build_message_response(incremented).text();
             bot.edit_message_text(*chat_id, *message_id, message)
-                .reply_markup(hero_build_keyboard(incremented))
+                .reply_markup(hero_build_keyboard(incremented, username))
                 .await
         }
         PREVIOUS_BUTTON => match callback_data.decremented_index() {
             Some(decrement) => {
                 let message = hero_build_message_response(decrement).text();
                 bot.edit_message_text(*chat_id, *message_id, message)
-                    .reply_markup(hero_build_keyboard(decrement))
+                    .reply_markup(hero_build_keyboard(decrement, username))
                     .await
             }
             None => Result::Err(RequestError::MigrateToChatId(*chat_id)),
@@ -129,7 +139,7 @@ async fn hero_build_callback(data: &str, chat_id: &ChatId, bot: &Bot, message_id
         ADMIN_BUILD_BUTTON => {
             bot.send_message(*chat_id, "Pls send screenshot of new build".to_string())
                 .parse_mode(ParseMode::MarkdownV2)
-                .reply_markup(new_build_keyboard())
+                .reply_markup(new_build_keyboard(username))
                 .await
         }
         SHARE_BUILD_BUTTON => {

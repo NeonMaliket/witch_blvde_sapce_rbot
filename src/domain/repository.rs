@@ -45,3 +45,9 @@ impl HeroBuildRepository {
         }
     }
 }
+
+pub fn is_admin(username: &str) -> bool {
+    let admins = vec!["MALlKETH"];
+    println!("username: {}", username);
+    admins.contains(&username)
+}

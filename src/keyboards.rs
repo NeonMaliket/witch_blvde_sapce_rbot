@@ -2,8 +2,18 @@ use crate::message_buttons_handler::button_callback::hero_builds::*;
 use crate::message_buttons_handler::button_callback::new_build::*;
 use crate::message_buttons_handler::message_type::{HERO_BUILDS, NEW_BUILD};
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
+use crate::domain::repository::is_admin;
 
-pub fn hero_build_keyboard(page_index: u32) -> InlineKeyboardMarkup {
+pub fn hero_build_keyboard(page_index: u32, username: &str) -> InlineKeyboardMarkup {
+    let new_build_keyboard = if is_admin(&username) {
+        vec![InlineKeyboardButton::callback(
+            "(Admin) Add New Build",
+            update_hero_build_with_index(ADMIN_BUILD_BUTTON, page_index),
+        )]
+    } else {
+        vec![]
+    };
+
     let keyboard = InlineKeyboardMarkup::new(vec![
         vec![
             InlineKeyboardButton::callback(
@@ -15,10 +25,7 @@ pub fn hero_build_keyboard(page_index: u32) -> InlineKeyboardMarkup {
                 update_hero_build_with_index(NEXT_BUTTON, page_index),
             ),
         ],
-        vec![InlineKeyboardButton::callback(
-            "(Admin) Add New Build",
-            update_hero_build_with_index(ADMIN_BUILD_BUTTON, page_index),
-        )],
+        new_build_keyboard,
         vec![InlineKeyboardButton::callback(
             "Share self build",
             update_hero_build_with_index(SHARE_BUILD_BUTTON, page_index),
@@ -27,7 +34,10 @@ pub fn hero_build_keyboard(page_index: u32) -> InlineKeyboardMarkup {
     keyboard
 }
 
-pub fn new_build_keyboard() -> InlineKeyboardMarkup {
+pub fn new_build_keyboard(username: &str) -> InlineKeyboardMarkup {
+    if !is_admin(&username) {
+        return InlineKeyboardMarkup::new(vec![vec![]]);
+    }
     let keyboard = InlineKeyboardMarkup::new(vec![
         vec![InlineKeyboardButton::callback(
             "Add Photo",
@@ -48,6 +58,8 @@ pub fn new_build_keyboard() -> InlineKeyboardMarkup {
     ]);
     keyboard
 }
+
+
 
 fn update_new_build_with_index(callback: &str) -> String {
     format!("{}:{}-0", callback, NEW_BUILD)

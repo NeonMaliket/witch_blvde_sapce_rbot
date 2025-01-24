@@ -19,6 +19,7 @@ pub enum CustomBotCommand {
 
 pub async fn answer(bot: Bot, msg: Message, cmd: CustomBotCommand) -> ResponseResult<()> {
     let chat_id = msg.chat.id;
+    let username = msg.from.unwrap().username.unwrap_or_else(|| "".to_string()).clone();
     match cmd {
         CustomBotCommand::Help => {
             bot.send_message(chat_id, CustomBotCommand::descriptions().to_string())
@@ -30,7 +31,7 @@ pub async fn answer(bot: Bot, msg: Message, cmd: CustomBotCommand) -> ResponseRe
             let message = find_first_build_message().text();
             bot.send_message(chat_id, message)
                 .parse_mode(ParseMode::MarkdownV2)
-                .reply_markup(hero_build_keyboard(index))
+                .reply_markup(hero_build_keyboard(index,username.as_str()))
                 .await?
         }
     };
