@@ -14,21 +14,21 @@ pub(crate) mod hero_build {
     use crate::domain::entity::HeroBuild;
     use crate::messages::MessageResponse;
 
-    impl MessageResponse for HeroBuild<'_> {
+    impl MessageResponse for HeroBuild {
         fn text(&self) -> String {
             let mut message = String::from("Hero Build");
 
-            self.title.map(|title| {
+            self.clone().title.map(|title| {
                 message.push('\n');
-                message.push_str(title);
+                message.push_str(title.as_str());
             });
-            self.description.map(|desc| {
+            self.clone().description.map(|desc| {
                 message.push('\n');
-                message.push_str(desc);
+                message.push_str(desc.as_str());
                 message.push('\n');
             });
-            self.photo_url.map(|url| {
-                message.push_str(url);
+            self.clone().photo_url.map(|url| {
+                message.push_str(url.as_str());
                 message.push('\n');
             });
             message

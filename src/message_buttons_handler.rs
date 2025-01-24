@@ -1,7 +1,7 @@
 use crate::domain::repository::{HeroBuildRepository, STORAGE};
 use crate::keyboards::{hero_build_keyboard, new_build_keyboard};
 use crate::message_buttons_handler::button_callback::hero_builds::*;
-use crate::message_buttons_handler::button_callback::new_build::{ADD_DESC, ADD_PHOTO, ADD_TITLE};
+use crate::message_buttons_handler::button_callback::new_build::{ADD_DESC, ADD_PHOTO, ADD_TITLE, SAVE_BUILD};
 use crate::messages::{BuildNotFoundMessageResponse, MessageResponse};
 use std::ops::Deref;
 use teloxide::payloads::{EditMessageTextSetters, SendMessageSetters};
@@ -28,6 +28,7 @@ pub mod button_callback {
         pub(crate) const ADD_PHOTO: &str = "ADD_PHOTO";
         pub(crate) const ADD_TITLE: &str = "ADD_TITLE";
         pub(crate) const ADD_DESC: &str = "ADD_DESC";
+        pub(crate) const SAVE_BUILD: &str = "SAVE_BUILD";
     }
 }
 
@@ -44,7 +45,7 @@ pub async fn message_button_callback<'a>(
             hero_build_callback(data, &chat_id, &bot, &message_id).await;
         }
         if data.contains(&message_type::NEW_BUILD) {
-            STORAGE.lock().unwrap().default_build_for(chat_id.clone());
+            STORAGE.lock().await.default_build_for(chat_id.clone());
             new_build_callback(data, &chat_id, &bot, &message_id).await;
         }
     }
@@ -63,7 +64,7 @@ async fn new_build_callback(
         ADD_PHOTO => {
             STORAGE
                 .lock()
-                .expect("Add photo STORAGE failed")
+                .await
                 .update_last_action(chat_id.clone(), ADD_PHOTO);
             bot.edit_message_text(*chat_id, *message_id, "NEW BUILD ADD PHOTO")
                 .reply_markup(new_build_keyboard())
@@ -72,7 +73,7 @@ async fn new_build_callback(
         ADD_TITLE => {
             STORAGE
                 .lock()
-                .expect("Add title STORAGE failed")
+                .await
                 .update_last_action(chat_id.clone(), ADD_TITLE);
             bot.edit_message_text(*chat_id, *message_id, "NEW BUILD ADD TITLE")
                 .reply_markup(new_build_keyboard())
@@ -81,9 +82,20 @@ async fn new_build_callback(
         ADD_DESC => {
             STORAGE
                 .lock()
-                .expect("Add description STORAGE failed")
+                .await
                 .update_last_action(chat_id.clone(), ADD_DESC);
             bot.edit_message_text(*chat_id, *message_id, "NEW BUILD ADD DESC")
+                .reply_markup(new_build_keyboard())
+                .await
+        }
+        SAVE_BUILD => {
+            let response_text = STORAGE
+                .lock()
+                .await
+                .get_build(chat_id).unwrap()
+                .text();
+            println!("SAVE BUILD");
+            bot.edit_message_text(*chat_id, *message_id, response_text)
                 .reply_markup(new_build_keyboard())
                 .await
         }

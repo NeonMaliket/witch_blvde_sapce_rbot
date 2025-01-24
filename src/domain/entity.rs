@@ -1,26 +1,26 @@
 use std::collections::HashMap;
 use teloxide::prelude::ChatId;
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct HeroBuild<'a> {
-    pub title: Option<&'a str>,
-    pub description: Option<&'a str>,
-    pub photo_url: Option<&'a str>,
+#[derive(Clone, Debug, Default)]
+pub struct HeroBuild {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub photo_url: Option<String>,
 }
 
-impl<'a> HeroBuild<'a> {
-    pub(crate) fn new(title: &'a str, description: &'a str, photo_url: &'a str) -> Self {
+impl HeroBuild {
+    pub(crate) fn new(title: &str, description: &str, photo_url: &str) -> Self {
         HeroBuild {
-            title: Some(title),
-            description: Some(description),
-            photo_url: Some(photo_url),
+            title: Some(title.to_string()),
+            description: Some(description.to_string()),
+            photo_url: Some(photo_url.to_string()),
         }
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct LocalStorage<'a> {
-    new_builds: HashMap<ChatId, HeroBuild<'a>>,
+    new_builds: HashMap<ChatId, HeroBuild>,
     last_action: HashMap<ChatId, &'a str>,
 }
 
@@ -29,15 +29,30 @@ impl<'a> LocalStorage<'a> {
         self.new_builds.entry(id).or_insert(HeroBuild::default());
     }
 
-    pub fn get_build(&self, id: &'a ChatId) -> Option<&HeroBuild<'a>> {
-        self.new_builds.get(id)
+    pub fn new_build(&mut self, id: &ChatId, build: HeroBuild) {
+        self.new_builds.entry(*id).insert_entry(build);
+    }
+
+    pub fn get_build(&mut self, id: &ChatId) -> Option<&mut HeroBuild> {
+        self.new_builds.get_mut(id)
     }
 
     pub fn update_last_action(&mut self, id: ChatId, action: &'a str) {
         self.last_action.insert(id, action);
     }
 
-    pub fn get_last_action(&self, id: &'a ChatId) -> Option<&str> {
+    pub fn remove_last_action(&mut self, id: &ChatId) {
+        self.last_action.remove(id);
+    }
+
+    pub fn get_last_action_and_remove(&mut self, id: &ChatId) -> Option<&str> {
+        let option = self.last_action.get(id).map(|s| *s);
+        self.last_action.remove(id);
+        option
+    }
+
+    pub fn get_last_action(&self, id: &ChatId) -> Option<&str> {
         self.last_action.get(id).map(|s| *s)
     }
+
 }
