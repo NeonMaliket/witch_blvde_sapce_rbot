@@ -16,21 +16,17 @@ pub(crate) mod hero_build {
 
     impl MessageResponse for HeroBuild {
         fn text(&self) -> String {
-            let mut message = String::from("Hero Build");
+            let hero_build = self.clone();
 
-            self.clone().title.map(|title| {
-                message.push('\n');
-                message.push_str(title.as_str());
-            });
-            self.clone().description.map(|desc| {
-                message.push('\n');
-                message.push_str(desc.as_str());
-                message.push('\n');
-            });
-            self.clone().photo_url.map(|url| {
-                message.push_str(url.as_str());
-                message.push('\n');
-            });
+            let message = format!("\
+            *Hero Build*\n\
+            Title: {}\n\
+            Description: {}\n"
+                              ,
+                              hero_build.title.unwrap_or(String::from("")).as_str(),
+                              hero_build.description.unwrap_or(String::from("")).as_str(),
+            );
+
             message
         }
     }

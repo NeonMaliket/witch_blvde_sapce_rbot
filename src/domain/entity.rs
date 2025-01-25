@@ -1,19 +1,22 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use teloxide::prelude::ChatId;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct HeroBuild {
+    pub id: Option<u32>,
     pub title: Option<String>,
     pub description: Option<String>,
-    pub photo_url: Option<String>,
+    pub photo_id: Option<String>,
 }
 
 impl HeroBuild {
-    pub(crate) fn new(title: &str, description: &str, photo_url: &str) -> Self {
+    pub(crate) fn new(id: u32, title: &str, description: &str, photo_url: &str) -> Self {
         HeroBuild {
+            id: Some(id),
             title: Some(title.to_string()),
             description: Some(description.to_string()),
-            photo_url: Some(photo_url.to_string()),
+            photo_id: Some(photo_url.to_string()),
         }
     }
 }
@@ -54,5 +57,4 @@ impl<'a> LocalStorage<'a> {
     pub fn get_last_action(&self, id: &ChatId) -> Option<&str> {
         self.last_action.get(id).map(|s| *s)
     }
-
 }
