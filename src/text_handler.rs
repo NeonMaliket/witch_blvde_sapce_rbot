@@ -1,10 +1,10 @@
 use crate::domain::repository::{current_build, last_action, STORAGE};
 use crate::keyboards::new_build_keyboard;
+use crate::message_buttons_handler::button_callback::hero_builds::ADMIN_BUILD_BUTTON;
 use crate::message_buttons_handler::button_callback::new_build::{ADD_DESC, ADD_PHOTO, ADD_TITLE};
 use crate::messages::MessageResponse;
 use teloxide::prelude::*;
 use teloxide::types::{InputFile, MediaKind, MessageKind, ParseMode};
-use teloxide::RequestError;
 
 pub async fn common_text_handler(bot: Bot, msg: Message) -> ResponseResult<()> {
     let chat_id = msg.chat.id;
@@ -13,39 +13,67 @@ pub async fn common_text_handler(bot: Bot, msg: Message) -> ResponseResult<()> {
     println!("PHOTO ID: {}", photo_id.clone());
     let username = msg.from.unwrap().username.unwrap_or("".to_string()).clone();
 
+    let last_action = last_action(&chat_id).await;
+
+    println!("Last action: {:?}", last_action);
+
+    let new_build_actions = vec![
+        ADD_PHOTO.to_string(),
+        ADD_TITLE.to_string(),
+        ADD_DESC.to_string(),
+        ADMIN_BUILD_BUTTON.to_string(),
+    ];
+    if new_build_actions.contains(&last_action) {
+        if let Some(value) = new_build_handler(bot, &chat_id, text, photo_id, username).await {
+            return value;
+        }
+    }
+
+    Ok(())
+}
+
+async fn new_build_handler(
+    bot: Bot,
+    chat_id: &ChatId,
+    text: String,
+    photo_id: String,
+    username: String,
+) -> Option<ResponseResult<()>> {
     println!("TEXT: {}", text);
-    let response_text = match new_build_text_handler(&chat_id, text, photo_id).await {
+
+    let response_text = match new_build_text_handler(chat_id, text, photo_id).await {
         Ok(value) => value,
-        Err(value) => return value,
+        Err(value) => return Some(value),
     };
 
     println!("Response text: {:?}", response_text);
+    let current_build = current_build(chat_id).await;
 
-    let current_build = current_build(&chat_id).await;
     if current_build.photo_id.is_some() {
         println!("Send with photo");
         if let Err(e) = bot
-            .send_photo(chat_id, InputFile::file_id(current_build.photo_id.unwrap()))
+            .send_photo(
+                *chat_id,
+                InputFile::file_id(current_build.photo_id.unwrap()),
+            )
             .parse_mode(ParseMode::MarkdownV2)
             .caption(response_text)
-            .reply_markup(new_build_keyboard(username.as_str(), &chat_id).await)
+            .reply_markup(new_build_keyboard(username.as_str(), chat_id).await)
             .await
         {
             eprintln!("Failed to send message: {:?}", e);
         }
     } else {
-    if let Err(e) = bot
-        .send_message(chat_id, response_text)
-        .parse_mode(ParseMode::MarkdownV2)
-        .reply_markup(new_build_keyboard(username.as_str(), &chat_id).await)
-        .await
-    {
-        eprintln!("Failed to send message: {:?}", e);
+        if let Err(e) = bot
+            .send_message(*chat_id, response_text)
+            .parse_mode(ParseMode::MarkdownV2)
+            .reply_markup(new_build_keyboard(username.as_str(), chat_id).await)
+            .await
+        {
+            eprintln!("Failed to send message: {:?}", e);
+        }
     }
-    }
-
-
-    Ok(())
+    None
 }
 
 async fn new_build_text_handler(
@@ -64,8 +92,12 @@ async fn new_build_text_handler(
 
     match last_action.as_str() {
         ADD_PHOTO => {
-            new_build.photo_id = Some(photo_id);
-            println!("COMMON TEXT (photo id): {}", text);
+            if photo_id.is_empty() {
+                println!("Wrong file format");
+            } else {
+                new_build.photo_id = Some(photo_id);
+                println!("COMMON TEXT (photo id): {}", text);
+            }
         }
         ADD_TITLE => {
             new_build.title = Some(text.clone());
@@ -100,10 +132,4 @@ pub fn get_photo_id(msg: &Message) -> String {
         }
     }
     String::from("")
-}
-
-fn wrap_error(result: Result<Message, RequestError>) {
-    if let Err(e) = result {
-        println!("[ERROR]: [{}]", e);
-    }
 }

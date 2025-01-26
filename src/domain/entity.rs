@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use teloxide::prelude::ChatId;
 use teloxide::types::{InputFile, InputMedia, InputMediaPhoto};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct HeroBuild {
     pub id: Option<u64>,
     pub title: Option<String>,
@@ -12,15 +12,6 @@ pub struct HeroBuild {
 }
 
 impl HeroBuild {
-    pub(crate) fn new(id: u64, title: &str, description: &str, photo_url: &str) -> Self {
-        HeroBuild {
-            id: Some(id),
-            title: Some(title.to_string()),
-            description: Some(description.to_string()),
-            photo_id: Some(photo_url.to_string()),
-        }
-    }
-
     pub fn input_file(&self) -> Option<InputFile> {
         self.clone().photo_id.map(|id| InputFile::file_id(id))
     }
@@ -57,12 +48,6 @@ impl<'a> LocalStorage<'a> {
 
     pub fn remove_last_action(&mut self, id: &ChatId) {
         self.last_action.remove(id);
-    }
-
-    pub fn get_last_action_and_remove(&mut self, id: &ChatId) -> Option<&str> {
-        let option = self.last_action.get(id).map(|s| *s);
-        self.last_action.remove(id);
-        option
     }
 
     pub fn get_last_action(&self, id: &ChatId) -> Option<&str> {

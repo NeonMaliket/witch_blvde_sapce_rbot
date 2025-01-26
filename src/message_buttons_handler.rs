@@ -1,14 +1,11 @@
 use crate::domain::entity::HeroBuild;
-use crate::domain::repository::{current_build, is_admin, HeroBuildRepository, STORAGE};
+use crate::domain::repository::{current_build, is_admin, remove_last_action, update_last_action, HeroBuildRepository, STORAGE};
 use crate::keyboards::{hero_build_keyboard, new_build_keyboard};
 use crate::message_buttons_handler::button_callback::hero_builds::*;
-use crate::message_buttons_handler::button_callback::new_build::{
-    ADD_DESC, ADD_PHOTO, ADD_TITLE, SAVE_BUILD,
-};
+use crate::message_buttons_handler::button_callback::new_build::{ADD_DESC, ADD_PHOTO, ADD_TITLE, SAVE_BUILD};
 use crate::messages::MessageResponse;
-use std::ops::Deref;
 use teloxide::payloads::EditMessageMediaSetters;
-use teloxide::payloads::{EditMessageCaptionSetters, EditMessageTextSetters, SendMessageSetters};
+use teloxide::payloads::{EditMessageCaptionSetters, SendMessageSetters};
 use teloxide::prelude::{CallbackQuery, Requester, ResponseResult};
 use teloxide::types::{ChatId, InputMedia, InputMediaPhoto, Message, MessageId, ParseMode};
 use teloxide::{Bot, RequestError};
@@ -27,8 +24,6 @@ pub mod button_callback {
     }
 
     pub mod new_build {
-        pub(crate) const NEW_BUILD_BUTTON: &str = "ADMIN_BUILD_BUTTON";
-
         pub(crate) const ADD_PHOTO: &str = "ADD_PHOTO";
         pub(crate) const ADD_TITLE: &str = "ADD_TITLE";
         pub(crate) const ADD_DESC: &str = "ADD_DESC";
@@ -54,7 +49,7 @@ pub async fn message_button_callback<'a>(
         }
         if data.contains(&message_type::NEW_BUILD) && is_admin(username.as_str()) {
             STORAGE.lock().await.default_build_for(chat_id.clone());
-            new_build_callback(data, &chat_id, &bot, &message_id, username.as_str()).await;
+            new_build_callback(data, &chat_id, &bot, &message_id).await;
         }
     }
 
@@ -66,7 +61,6 @@ async fn new_build_callback(
     chat_id: &ChatId,
     bot: &Bot,
     message_id: &MessageId,
-    username: &str,
 ) {
     let callback_data = CallbackData::from(data.to_string());
     let result = match callback_data.button_type.as_str() {
@@ -122,6 +116,7 @@ async fn new_build_callback(
             }
             let response_text = build.text();
             println!("SAVE BUILD");
+            remove_last_action(chat_id).await;
             bot.edit_message_caption(*chat_id, *message_id)
                 .caption(response_text)
                 .parse_mode(ParseMode::MarkdownV2)
@@ -183,6 +178,7 @@ async fn hero_build_callback(
         },
         ADMIN_BUILD_BUTTON => {
             let current_build = current_build(chat_id).await;
+            update_last_action(chat_id, ADMIN_BUILD_BUTTON).await;
             bot.send_message(*chat_id, current_build.text())
                 .parse_mode(ParseMode::MarkdownV2)
                 .reply_markup(new_build_keyboard(username, chat_id).await)

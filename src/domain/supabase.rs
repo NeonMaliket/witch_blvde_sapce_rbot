@@ -1,6 +1,5 @@
 use lazy_static::lazy_static;
 use std::env;
-use std::fmt::{Debug, Display};
 use supabase_rs::SupabaseClient;
 
 lazy_static! {

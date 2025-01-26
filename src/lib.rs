@@ -1,7 +1,6 @@
 use crate::command_handler::{answer, CustomBotCommand};
 use crate::message_buttons_handler::message_button_callback;
 use crate::text_handler::common_text_handler;
-use teloxide::dptree::*;
 use teloxide::prelude::*;
 
 mod command_handler;

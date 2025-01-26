@@ -81,7 +81,7 @@ impl HeroBuildRepository {
         } else {
             builds
                 .iter()
-                .filter(|(build_index, build)| index.eq(build_index))
+                .filter(|(build_index, _)| index.eq(build_index))
                 .nth(0)
                 .map(|(_, build)| build.clone())
         }
@@ -97,11 +97,25 @@ pub async fn current_build(chat_id: &ChatId) -> HeroBuild {
         .unwrap_or(HeroBuild::default())
 }
 
+pub async fn update_last_action(chat_id: &ChatId, action: &'static str) {
+    STORAGE
+        .lock()
+        .await
+        .update_last_action(chat_id.clone(), action);
+}
+
+pub async fn remove_last_action(chat_id: &ChatId) {
+    STORAGE
+        .lock()
+        .await
+        .remove_last_action(chat_id)
+}
+
 pub async fn last_action(chat_id: &ChatId) -> String {
     STORAGE
         .lock()
         .await
-        .get_last_action_and_remove(chat_id)
+        .get_last_action(chat_id)
         .map(str::to_string)
         .unwrap_or(String::default())
 }
