@@ -1,14 +1,16 @@
+use crate::domain::entity::HeroBuild;
 use crate::domain::repository::{current_build, is_admin, HeroBuildRepository, STORAGE};
 use crate::keyboards::{hero_build_keyboard, new_build_keyboard};
 use crate::message_buttons_handler::button_callback::hero_builds::*;
 use crate::message_buttons_handler::button_callback::new_build::{
     ADD_DESC, ADD_PHOTO, ADD_TITLE, SAVE_BUILD,
 };
-use crate::messages::{BuildNotFoundMessageResponse, MessageResponse};
+use crate::messages::MessageResponse;
 use std::ops::Deref;
+use teloxide::payloads::EditMessageMediaSetters;
 use teloxide::payloads::{EditMessageCaptionSetters, EditMessageTextSetters, SendMessageSetters};
 use teloxide::prelude::{CallbackQuery, Requester, ResponseResult};
-use teloxide::types::{ChatId, Message, MessageId, ParseMode};
+use teloxide::types::{ChatId, InputMedia, InputMediaPhoto, Message, MessageId, ParseMode};
 use teloxide::{Bot, RequestError};
 
 pub mod message_type {
@@ -46,8 +48,8 @@ pub async fn message_button_callback<'a>(
             .unwrap_or_else(|| "".to_string());
         let chat_id = message.chat().id;
         let message_id = message.id();
-
         if data.contains(&message_type::HERO_BUILDS) {
+
             hero_build_callback(data, &chat_id, &bot, &message_id, username.as_str()).await;
         }
         if data.contains(&message_type::NEW_BUILD) && is_admin(username.as_str()) {
@@ -73,21 +75,39 @@ async fn new_build_callback(
                 .lock()
                 .await
                 .update_last_action(chat_id.clone(), ADD_PHOTO);
-            send_new_build_message(chat_id, bot, message_id, "Please share a screenshot of your new build").await
+            send_new_build_message(
+                chat_id,
+                bot,
+                message_id,
+                "Please share a screenshot of your new build",
+            )
+            .await
         }
         ADD_TITLE => {
             STORAGE
                 .lock()
                 .await
                 .update_last_action(chat_id.clone(), ADD_TITLE);
-            send_new_build_message(chat_id, bot, message_id, "Please add title for you new build").await
+            send_new_build_message(
+                chat_id,
+                bot,
+                message_id,
+                "Please add title for you new build",
+            )
+            .await
         }
         ADD_DESC => {
             STORAGE
                 .lock()
                 .await
                 .update_last_action(chat_id.clone(), ADD_DESC);
-            send_new_build_message(chat_id, bot, message_id, "Please add description for your new build").await
+            send_new_build_message(
+                chat_id,
+                bot,
+                message_id,
+                "Please add description for your new build",
+            )
+            .await
         }
         SAVE_BUILD => {
             let build = current_build(chat_id).await;
@@ -113,16 +133,25 @@ async fn new_build_callback(
     println!("Message type: {}", callback_data.message_type);
 }
 
-async fn send_new_build_message(chat_id: &ChatId, bot: &Bot, message_id: &MessageId, text: &str) -> Result<Message, RequestError> {
-    let has_photo = !current_build(chat_id).await.photo_id.unwrap_or("".to_string()).as_str().is_empty();
+async fn send_new_build_message(
+    chat_id: &ChatId,
+    bot: &Bot,
+    message_id: &MessageId,
+    text: &str,
+) -> Result<Message, RequestError> {
+    let has_photo = !current_build(chat_id)
+        .await
+        .photo_id
+        .unwrap_or("".to_string())
+        .as_str()
+        .is_empty();
 
     if has_photo {
         bot.edit_message_caption(*chat_id, *message_id)
             .caption(text)
             .await
     } else {
-        bot.edit_message_text(*chat_id, *message_id, text)
-            .await
+        bot.edit_message_text(*chat_id, *message_id, text).await
     }
 }
 
@@ -137,21 +166,17 @@ async fn hero_build_callback(
 
     println!("Message type: {}", callback_data.message_type);
 
+    let repo = HeroBuildRepository::new();
+
     let result = match callback_data.button_type.as_str() {
         NEXT_BUTTON => {
-            let incremented: u32 = callback_data.incremented_index();
-            let message = hero_build_message_response(incremented).text();
-            bot.edit_message_text(*chat_id, *message_id, message)
-                .parse_mode(ParseMode::MarkdownV2)
-                .reply_markup(hero_build_keyboard(incremented, username))
+            let incremented: usize = callback_data.incremented_index();
+            send_update_navigation_media(chat_id, bot, message_id, username, &repo, incremented)
                 .await
         }
         PREVIOUS_BUTTON => match callback_data.decremented_index() {
             Some(decrement) => {
-                let message = hero_build_message_response(decrement).text();
-                bot.edit_message_text(*chat_id, *message_id, message)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .reply_markup(hero_build_keyboard(decrement, username))
+                send_update_navigation_media(chat_id, bot, message_id, username, &repo, decrement)
                     .await
             }
             None => Result::Err(RequestError::MigrateToChatId(*chat_id)),
@@ -171,7 +196,7 @@ async fn hero_build_callback(
                     callback_data.index
                 ),
             )
-                .await
+            .await
         }
         _ => bot.send_message(*chat_id, "Unknown button clicked").await,
     };
@@ -184,20 +209,44 @@ fn wrap_error(result: Result<Message, RequestError>) {
     }
 }
 
-fn hero_build_message_response(index: u32) -> Box<dyn MessageResponse> {
-    let repo = HeroBuildRepository::new();
-    let hero_build = repo.find_build_by_index(index);
+async fn send_update_navigation_media(
+    chat_id: &ChatId,
+    bot: &Bot,
+    message_id: &MessageId,
+    username: &str,
+    repo: &HeroBuildRepository,
+    index: usize,
+) -> Result<Message, RequestError> {
+    let hero_build = repo
+        .find_build_by_index(index)
+        .await
+        .unwrap_or(HeroBuild::default());
 
-    match hero_build {
-        None => Box::new(BuildNotFoundMessageResponse),
-        Some(build) => Box::new(build),
+    let message = hero_build.clone().text();
+    if hero_build.file_as_input_media().is_some() {
+        let input_media = InputMedia::Photo(InputMediaPhoto {
+            media: hero_build.clone().input_file().unwrap(),
+            caption: Some(message),
+            parse_mode: Some(ParseMode::MarkdownV2),
+            caption_entities: None,
+            has_spoiler: false,
+        });
+        bot.edit_message_media(
+            *chat_id,
+            *message_id,
+            input_media,
+        )
+        .reply_markup(hero_build_keyboard(index, username))
+        .await
+    } else {
+        Err(RequestError::MigrateToChatId(*chat_id))
     }
 }
 
 struct CallbackData {
     button_type: String,
     message_type: String,
-    index: u32,
+    index: usize,
 }
 
 impl CallbackData {
@@ -205,7 +254,7 @@ impl CallbackData {
         println!("Trying to split message: {}", message);
         let (button, index) = message.split_once('-').unwrap();
         let (button, message_type) = button.split_once(':').unwrap();
-        let index: u32 = index
+        let index: usize = index
             .parse()
             .expect("Failed to parse index in CallbackData");
 
@@ -216,11 +265,11 @@ impl CallbackData {
         }
     }
 
-    fn incremented_index(&self) -> u32 {
+    fn incremented_index(&self) -> usize {
         self.index + 1
     }
 
-    fn decremented_index(&self) -> Option<u32> {
+    fn decremented_index(&self) -> Option<usize> {
         if self.index > 1 {
             Some(self.index - 1)
         } else {

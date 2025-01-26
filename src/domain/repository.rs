@@ -29,37 +29,62 @@ impl HeroBuildRepository {
     pub(crate) async fn save(&mut self, build: HeroBuild) -> Result<(), String> {
         println!("Saving hero build: {:#?}", build);
         self.client
-            .insert(
-                self.table_name,
-                json!(build),
-            )
+            .insert(self.table_name, json!(build))
             .await
             .expect("Could not add hero_builds");
 
         Ok(())
     }
 
+    pub(crate) async fn find_all_builds_with_indexes(&self) -> Vec<(usize, HeroBuild)> {
+        let builds = self
+            .find_all_builds()
+            .await
+            .iter()
+            .enumerate()
+            .map(|(index, build)| (index + 1, build.clone()))
+            .collect::<Vec<(usize, HeroBuild)>>();
+        builds
+    }
     pub(crate) async fn find_all_builds(&self) -> Vec<HeroBuild> {
-        let data: Vec<HeroBuild> = self.client
+        let from_db = self
+            .client
             .select(self.table_name)
             .columns(["id", "title", "description", "photo_id"].to_vec())
             .execute()
-            .await.unwrap_or(vec![]).into_iter()
-            .map(|item| {
-                from_value(item)
-                    .map_err(|e| format!("Error deserializing: {}", e))
-            })
-            .collect::<Result<_, _>>().unwrap_or(vec![]);
-
+            .await
+            .unwrap_or(vec![]);
+        println!("From db: {:?}", from_db);
+        let data: Vec<HeroBuild> = from_db
+            .into_iter()
+            .map(|item| from_value(item).map_err(|e| format!("Error deserializing: {}", e)))
+            .collect::<Result<_, _>>()
+            .unwrap_or(vec![]);
+        println!("Found {} hero builds", data.len());
         data
     }
 
-    pub(crate) fn find_first_build(&self) -> Option<HeroBuild> {
-        self.find_build_by_index(1)
+    pub(crate) async fn find_first_build(&self) -> Option<HeroBuild> {
+        let build = self
+            .find_all_builds()
+            .await
+            .iter()
+            .next()
+            .map(|b| b.clone());
+        build
     }
 
-    pub(crate) fn find_build_by_index(&self, index: u32) -> Option<HeroBuild> {
-        None
+    pub(crate) async fn find_build_by_index(&self, index: usize) -> Option<HeroBuild> {
+        let builds = self.find_all_builds_with_indexes().await;
+        if builds.len() + 1 < index {
+            builds.last().map(|(_, build)| build.clone())
+        } else {
+            builds
+                .iter()
+                .filter(|(build_index, build)| index.eq(build_index))
+                .nth(0)
+                .map(|(_, build)| build.clone())
+        }
     }
 }
 

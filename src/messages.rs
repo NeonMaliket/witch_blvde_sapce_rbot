@@ -18,13 +18,13 @@ pub(crate) mod hero_build {
         fn text(&self) -> String {
             let hero_build = self.clone();
 
-            let message = format!("\
+            let message = format!(
+                "\
             *Hero Build*\n\
             Title: {}\n\
-            Description: {}\n"
-                              ,
-                              hero_build.title.unwrap_or(String::from("")).as_str(),
-                              hero_build.description.unwrap_or(String::from("")).as_str(),
+            Description: {}\n",
+                hero_build.title.unwrap_or(String::from("")).as_str(),
+                hero_build.description.unwrap_or(String::from("")).as_str(),
             );
 
             message

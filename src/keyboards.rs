@@ -5,7 +5,7 @@ use crate::message_buttons_handler::message_type::{HERO_BUILDS, NEW_BUILD};
 use teloxide::prelude::ChatId;
 use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 
-pub fn hero_build_keyboard(page_index: u32, username: &str) -> InlineKeyboardMarkup {
+pub fn hero_build_keyboard(page_index: usize, username: &str) -> InlineKeyboardMarkup {
     let new_build_keyboard = if is_admin(&username) {
         vec![InlineKeyboardButton::callback(
             "(Admin) Add New Build",
@@ -84,6 +84,6 @@ fn update_new_build_with_index(callback: &str) -> String {
     format!("{}:{}-0", callback, NEW_BUILD)
 }
 
-fn update_hero_build_with_index(callback: &str, index: u32) -> String {
+fn update_hero_build_with_index(callback: &str, index: usize) -> String {
     format!("{}:{}-{}", callback, HERO_BUILDS, index)
 }

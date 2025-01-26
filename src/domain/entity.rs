@@ -1,23 +1,34 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use teloxide::prelude::ChatId;
+use teloxide::types::{InputFile, InputMedia, InputMediaPhoto};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct HeroBuild {
-    pub id: Option<u32>,
+    pub id: Option<u64>,
     pub title: Option<String>,
     pub description: Option<String>,
     pub photo_id: Option<String>,
 }
 
 impl HeroBuild {
-    pub(crate) fn new(id: u32, title: &str, description: &str, photo_url: &str) -> Self {
+    pub(crate) fn new(id: u64, title: &str, description: &str, photo_url: &str) -> Self {
         HeroBuild {
             id: Some(id),
             title: Some(title.to_string()),
             description: Some(description.to_string()),
             photo_id: Some(photo_url.to_string()),
         }
+    }
+
+    pub fn input_file(&self) -> Option<InputFile> {
+        self.clone().photo_id.map(|id| InputFile::file_id(id))
+    }
+
+    pub fn file_as_input_media(&self) -> Option<InputMedia> {
+        self.clone()
+            .input_file()
+            .map(|input_file| InputMedia::Photo(InputMediaPhoto::new(input_file)))
     }
 }
 
