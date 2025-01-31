@@ -3,9 +3,14 @@
 #[ink::contract]
 mod wbs_hero_build {
     use ink::prelude::string::String;
+    use ink::storage::Mapping;
+    use ink::storage::StorageVec;
+    use ink::prelude::vec::Vec;
 
-    #[ink(storage)]
-    pub struct HeroBuild {
+    #[ink::scale_derive(Encode, Decode, TypeInfo)]
+    #[cfg_attr(feature = "std", derive(ink::storage::traits::StorageLayout))]
+    #[derive(Clone)]
+    pub struct SingleBuild {
         id: u64,
         title: String,
         description: String,
@@ -13,51 +18,70 @@ mod wbs_hero_build {
         created_on: u64,
     }
 
-    impl HeroBuild {
-        #[ink(constructor)]
-        pub fn new(id: u64, title: String, description: String, photo_id: String) -> Self {
+    impl SingleBuild {
+        pub fn new(
+            id: u64,
+            title: String,
+            description: String,
+            photo_id: String,
+            created_on: u64,
+        ) -> Self {
             Self {
                 id,
                 title,
                 description,
                 photo_id,
-                created_on: Self::env().block_timestamp(),
+                created_on,
+            }
+        }
+    }
+
+    #[ink(storage)]
+    #[derive(Default)]
+    pub struct HeroBuilds {
+        builds: Mapping<AccountId, SingleBuild>,
+        array: StorageVec<SingleBuild>,
+    }
+
+    impl HeroBuilds {
+        #[ink(constructor)]
+        pub fn new() -> Self {
+            Self {
+                builds: Mapping::default(),
+                array: StorageVec::default(),
             }
         }
 
         #[ink(message)]
-        pub fn update_title(&mut self, title: String) {
-            self.title = title;
+        pub fn add_build(&mut self, title: String, description: String, photo_id: String) {
+            let caller = self.env().caller();
+            let build = &SingleBuild::new(
+                Self::env().block_timestamp(),
+                title,
+                description,
+                photo_id,
+                Self::env().block_timestamp(),
+            );
+            self.builds.insert(caller, build);
+            self.array.push(build);
         }
 
         #[ink(message)]
-        pub fn update_description(&mut self, description: String) {
-            self.description = description;
+        pub fn get_as_array(&mut self) -> Vec<SingleBuild> {
+            let mut vec = Vec::new();
+
+            while let Some(hero) = self.array.pop() {
+                vec.push(hero);
+            }
+
+            vec
         }
 
         #[ink(message)]
-        pub fn update_photo_id(&mut self, photo_id: String) {
-            self.photo_id = photo_id;
-        }
-
-        #[ink(message)]
-        pub fn created_on(&self) -> u64 {
-            self.created_on
-        }
-
-        #[ink(message)]
-        pub fn account_id(&self) -> AccountId {
-            Self::env().account_id()
-        }
-
-        #[ink(message)]
-        pub fn get(&self) -> (u64, String, String, String) {
-            (
-                self.id,
-                self.title.clone(),
-                self.description.clone(),
-                self.photo_id.clone(),
-            )
+        pub fn get_single(&self) -> Option<SingleBuild> {
+            let caller = self.env().caller();
+            let result = self.builds.get(caller)?.clone();
+            Some(result)
         }
     }
 }
