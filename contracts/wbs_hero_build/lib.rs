@@ -3,9 +3,8 @@
 #[ink::contract]
 mod wbs_hero_build {
     use ink::prelude::string::String;
-    use ink::storage::Mapping;
-    use ink::storage::StorageVec;
     use ink::prelude::vec::Vec;
+    use ink::storage::StorageVec;
 
     #[ink::scale_derive(Encode, Decode, TypeInfo)]
     #[cfg_attr(feature = "std", derive(ink::storage::traits::StorageLayout))]
@@ -39,49 +38,43 @@ mod wbs_hero_build {
     #[ink(storage)]
     #[derive(Default)]
     pub struct HeroBuilds {
-        builds: Mapping<AccountId, SingleBuild>,
-        array: StorageVec<SingleBuild>,
+        builds: StorageVec<SingleBuild>,
     }
 
     impl HeroBuilds {
         #[ink(constructor)]
         pub fn new() -> Self {
             Self {
-                builds: Mapping::default(),
-                array: StorageVec::default(),
+                builds: StorageVec::default(),
             }
         }
 
         #[ink(message)]
-        pub fn add_build(&mut self, title: String, description: String, photo_id: String) {
-            let caller = self.env().caller();
-            let build = &SingleBuild::new(
+        pub fn add_build(
+            &mut self,
+
+            title: String,
+            description: String,
+            photo_id: String,
+        ) {
+            self.builds.push(&SingleBuild::new(
                 Self::env().block_timestamp(),
                 title,
                 description,
                 photo_id,
                 Self::env().block_timestamp(),
-            );
-            self.builds.insert(caller, build);
-            self.array.push(build);
+            ));
         }
 
         #[ink(message)]
         pub fn get_as_array(&mut self) -> Vec<SingleBuild> {
             let mut vec = Vec::new();
 
-            while let Some(hero) = self.array.pop() {
+            while let Some(hero) = self.builds.pop() {
                 vec.push(hero);
             }
 
             vec
-        }
-
-        #[ink(message)]
-        pub fn get_single(&self) -> Option<SingleBuild> {
-            let caller = self.env().caller();
-            let result = self.builds.get(caller)?.clone();
-            Some(result)
         }
     }
 }
