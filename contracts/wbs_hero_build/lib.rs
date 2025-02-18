@@ -50,13 +50,7 @@ mod wbs_hero_build {
         }
 
         #[ink(message)]
-        pub fn add_build(
-            &mut self,
-
-            title: String,
-            description: String,
-            photo_id: String,
-        ) {
+        pub fn add_build(&mut self, title: String, description: String, photo_id: String) {
             self.builds.push(&SingleBuild::new(
                 Self::env().block_timestamp(),
                 title,
@@ -67,7 +61,7 @@ mod wbs_hero_build {
         }
 
         #[ink(message)]
-        pub fn get_as_array(&mut self) -> Vec<SingleBuild> {
+        pub fn get_all_builds(&mut self) -> Vec<SingleBuild> {
             let mut vec = Vec::new();
 
             while let Some(hero) = self.builds.pop() {
